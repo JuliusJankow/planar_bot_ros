@@ -79,13 +79,9 @@ bool RMRCController::init(hardware_interface::EffortJointInterface* hw, ros::Nod
 
 void RMRCController::starting(const ros::Time& time) {
     // initialize desired joint positions
-    //for(unsigned int i=0; i<joint_names_.size(); i++) {
-    //    q_d_[i]  = joints_[i].getPosition();
-    //}
-    q_d_(0) = -1.57;
-    q_d_(1) = 0.78;
-    q_d_(2) = 1.57;
-    q_d_(3) = 0.79;
+    for(unsigned int i=0; i<joint_names_.size(); i++) {
+        q_d_[i]  = joints_[i].getPosition();
+    }
 }
 
 void RMRCController::constructSpline(const Eigen::Vector2d& w_start, const double t_start, const Eigen::Vector2d& w_end, const double t_end) {
@@ -108,7 +104,7 @@ void RMRCController::constructSpline(const Eigen::Vector2d& w_start, const doubl
       spline.coeff[4] = -15.0 * (w_end(i) - w_start(i)) * lambda_pow[4];
       spline.coeff[5] = 6.0 * (w_end(i) - w_start(i)) * lambda_pow[5];
 
-      splines.push_back(spline); // spline for y
+      splines.push_back(spline);
     }
 
     spline_buffer_.writeFromNonRT(splines);
@@ -131,7 +127,7 @@ bool RMRCController::sampleTaskSpline(const double& t, Eigen::Vector2d& w_d, Eig
     generatePowers(5,t_rel,t_pow);
 
     w_d(0) = (*splines)[0].coeff[0];
-    w_d(1) = (*splines)[1].coeff[1];
+    w_d(1) = (*splines)[1].coeff[0];
     dw_d << 0.0, 0.0;
 
     for(int i=1; i<6; i++) {
@@ -187,10 +183,12 @@ void RMRCController::update(const ros::Time& t, const ros::Duration& period) {
 
     q_d_ += dq_d * period.toSec(); // kSampleTime;
 
+    double tau_max = 80.0;
     for(unsigned int i=0; i<joint_names_.size(); i++) {
         double q  = joints_[i].getPosition();
         double dq = joints_[i].getVelocity();
         double tau_c = k_p_ * (q_d_(i) - q) + k_d_ * (dq_d(i) - dq);
+        tau_c = std::min(std::max(tau_c, -tau_max), tau_max);
         joints_[i].setCommand(tau_c);
     }
 }
