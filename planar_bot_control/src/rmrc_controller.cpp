@@ -110,7 +110,7 @@ void RMRCController::constructSpline(const Eigen::Vector2d& w_start, const doubl
     spline_buffer_.writeFromNonRT(splines);
 }
 
-void constructSpline(const Eigen::Vector2d& w_start, const double t_start, const Eigen::Vector2d& w_end) {
+void RMRCController::constructSpline(const Eigen::Vector2d& w_start, const double t_start, const Eigen::Vector2d& w_end) {
     // TODO: spline parametrized by max velocity
 }
 

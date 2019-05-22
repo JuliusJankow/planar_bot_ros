@@ -1,8 +1,18 @@
 <library path="lib/libplanar_bot_control">
 
-    <class name="planar_bot_control/RMRCController" type="planar_bot_control::RMRCController" base_class_type="controller_interface::ControllerBase">
+  <class name="planar_bot_control/RMRCController" type="planar_bot_control::RMRCController"
+         base_class_type="controller_interface::ControllerBase">
     <description>
-      The RMRC controller moves the robot to a task space goal by minimizing null space motion. It expects a EffortJointInterface type of hardware interface.
+      The RMRC controller moves the robot to a task space goal by minimizing null space motion. It expects an EffortJointInterface type of
+      hardware interface.
+    </description>
+  </class>
+  
+  <class name="planar_bot_control/ASCController" type="planar_bot_control::ASCController"
+         base_class_type="controller_interface::ControllerBase">
+    <description>
+      The ASC controller moves the robot to a task space goal while moving in null space along the negative gradient of a cost function.
+      It expects an EffortJointInterface type of hardware interface.
     </description>
   </class>
 
