@@ -29,13 +29,13 @@ struct RobotState {
   std::array<Eigen::Matrix<double,2,4> , 5> J;
 };
 
-class ASCController : public controller_interface::Controller<hardware_interface::EffortJointInterface>
+class ASCController : public controller_interface::Controller<hardware_interface::PositionJointInterface>
 {
 public:
   ASCController();
   ~ASCController();
 
-  bool init(hardware_interface::EffortJointInterface* hw, ros::NodeHandle &n);
+  bool init(hardware_interface::PositionJointInterface* hw, ros::NodeHandle &n);
   void starting(const ros::Time& time);
   void update(const ros::Time& /*time*/, const ros::Duration& /*period*/);
 

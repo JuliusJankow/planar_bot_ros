@@ -18,7 +18,7 @@ inline void generatePowers(int n, const double& x, std::vector<double>& powers) 
     }
 }
 
-bool ASCController::init(hardware_interface::EffortJointInterface* hw, ros::NodeHandle &n) {
+bool ASCController::init(hardware_interface::PositionJointInterface* hw, ros::NodeHandle &n) {
   // List of controlled joints
   std::string param_name = "joints";
   if(!n.getParam(param_name, joint_names_)) {
@@ -329,13 +329,14 @@ void ASCController::update(const ros::Time& t, const ros::Duration& period) {
     Eigen::Vector4d dq_d = dq_task + alpha_ * N * dq_n;
     virtual_robot_.q += dq_d * kSampleTime;
 
-    double tau_max = 80.0;
+    //double tau_max = 80.0;
     for(unsigned int i=0; i<joint_names_.size(); i++) {
-        double q  = joints_[i].getPosition();
+        /*double q  = joints_[i].getPosition();
         double dq = joints_[i].getVelocity();
         double tau_c = k_p_ * (virtual_robot_.q(i) - q) + k_d_ * (dq_d(i) - dq);
         tau_c = std::min(std::max(tau_c, -tau_max), tau_max);
-        joints_[i].setCommand(tau_c);
+        joints_[i].setCommand(tau_c);*/
+        joints_[i].setCommand(virtual_robot_.q[i]);
     }
 }
 
@@ -344,7 +345,7 @@ void ASCController::goalCB(const std_msgs::Float64MultiArrayConstPtr& msg) {
   
   Eigen::Vector2d w_end(msg->data[0], msg->data[1]);
   
-  double t_start = ros::Time::now().toSec() + 2.0;
+  double t_start = ros::Time::now().toSec() + 1.0;
   
   constructSpline(virtual_robot_.w[4], t_start, w_end, t_start + 3.0);
 }

@@ -10,6 +10,7 @@ static constexpr uint8_t kDoF = 4;
 class PlanarBotHW : public hardware_interface::RobotHW {
 public:
   PlanarBotHW();
+  void update();
 
 private:
   hardware_interface::JointStateInterface jnt_state_interface;
@@ -19,8 +20,6 @@ private:
   double pos[kDoF];
   double vel[kDoF];
   double eff[kDoF];
-  /*std::array<double, kDoF> pos;
-  double dummy{0.0};*/
 }; // class
 
 } // namespace

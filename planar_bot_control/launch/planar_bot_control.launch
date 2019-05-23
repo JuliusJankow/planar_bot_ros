@@ -13,9 +13,5 @@
   respawn="false" output="screen">
     <remap from="/joint_states" to="/planar_bot/joint_states" />
   </node>
-  
-  <node type="rviz" name="rviz" pkg="rviz"/>
-  
-  <node pkg="planar_bot_description" name="sphere_publisher" type="plot_sphere.py" output="screen"/> 
 
 </launch>

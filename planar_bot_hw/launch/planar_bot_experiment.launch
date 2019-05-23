@@ -3,17 +3,14 @@
   <!-- Load the URDF into the ROS Parameter Server -->
   <param name="robot_description"
     command="$(find xacro)/xacro --inorder '$(find planar_bot_description)/urdf/planar_bot.xacro'" />
-    
-  <node name="planar_bot_hw" pkg="planar_bot_hw" type="planar_bot_hw_node" output="screen"/>
   
-  <!-- Load joint controller configurations from YAML file to parameter server -->
-  <rosparam file="$(find planar_bot_control)/config/planar_bot_control.yaml" command="load"/>
+  <node name="planar_bot_hw" pkg="planar_bot_hw" type="planar_bot_hw_node" ns="planar_bot" output="screen"/>
   
-  <!-- <include file="$(find planar_bot_control)/launch/planar_bot_control.launch"/> -->
+  <include file="$(find planar_bot_control)/launch/planar_bot_control.launch"/>
   
-  <!-- <node type="rviz" name="rviz" pkg="rviz" output="screen"/> -->
+  <node type="rviz" name="rviz" pkg="rviz" output="screen"/>
   
-  <!-- <node pkg="planar_bot_description" name="sphere_publisher" type="plot_sphere.py" output="screen"/> -->
+  <node pkg="planar_bot_description" name="sphere_publisher" type="plot_sphere.py" output="screen"/>
   
 </launch>
    
