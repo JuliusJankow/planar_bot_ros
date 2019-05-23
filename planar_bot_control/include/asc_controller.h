@@ -53,6 +53,8 @@ private:
   Eigen::Vector4d getGradientJLA();
   Eigen::Vector4d getGradientSCA();
   Eigen::Vector4d computeLinkPairGradient(int link_p0, int link_p1);
+  Eigen::Vector4d getGradientCA();
+  Eigen::Vector4d computeLinkObstacleGradient(int link, am_ssv_dist::PSS_object* p);
   Eigen::Vector4d getGradientOfCost();
 
   std::vector<urdf::JointConstSharedPtr> joint_urdfs_;
@@ -62,11 +64,11 @@ private:
   double k_p_{200.0};
   double k_d_{80.0};
   double dw_max_{0.2};
-  double alpha_{1.0};
+  double alpha_{20.0};
   
-  // parameter self collision avoidance (sca)
-  double d_sca_{0.3};
-  double m_sca_{1.0};
+  // parameter (self) collision avoidance (sca)
+  double d_sca_{0.15};
+  double m_sca_{3.0};
   
   RobotState virtual_robot_;
   

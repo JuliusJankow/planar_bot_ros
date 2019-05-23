@@ -144,9 +144,9 @@ bool ASCController::sampleTaskSpline(const double& t, Eigen::Vector2d& w_d, Eige
     return true;
 }
 
-double q0_min = -1.57, q0_min_s = -1.4;
-double q0_max =  1.57, q0_max_s =  1.4;
-double q_m =  3.14, q_m_s =  2.8;
+double q0_min = -0.3, q0_min_s = -0.15;
+double q0_max =  3.45, q0_max_s =  3.3;
+double q_m =  3.0, q_m_s =  2.8;
 Eigen::Vector4d ASCController::getGradientJLA() {
   Eigen::Vector4d gradient(0.0, 0.0, 0.0, 0.0);
   
@@ -164,6 +164,58 @@ Eigen::Vector4d ASCController::getGradientJLA() {
       gradient(i) = 2 * (virtual_robot_.q(i) - q_m_s) / ((q_m - q_m_s) * (q_m - q_m_s));
     }
   }
+  
+  return gradient;
+}
+
+double x1 = 1.0, y1 = 0.5, radius1 = 0.1;
+double x2 = 2.0, y2 = 0.5, radius2 = 0.1;
+Eigen::Vector4d ASCController::getGradientCA() {
+  Eigen::Vector4d gradient(0.0, 0.0, 0.0, 0.0);
+  
+  am_ssv_dist::PSS_object p1,p2;
+  p1.set_p0(Eigen::Vector4f(x1, y1, 0.0, 0.0));
+  p1.set_radius(radius1);
+  p2.set_p0(Eigen::Vector4f(x2, y2, 0.0, 0.0));
+  p2.set_radius(radius2);
+  
+  for(int link=0; link<4; link++) {
+    gradient += computeLinkObstacleGradient(link, &p1);
+    gradient += computeLinkObstacleGradient(link, &p2);
+  }
+  
+  return gradient;
+}
+
+Eigen::Vector4d ASCController::computeLinkObstacleGradient(int link, am_ssv_dist::PSS_object* p) {
+  Eigen::Vector4d gradient = Eigen::Vector4d::Zero();
+
+  if(0 > link || link > 3) {
+    return gradient;
+  }
+
+  // compute shortest distance and corresponding link points
+  am_ssv_dist::SSV_DistCalculator dist_calc;
+  am_ssv_dist::SSV_DistCalcResult dist_result;
+  dist_calc.cdPL(p,&(link_ssv_[link]),dist_result);
+  
+  if(dist_result.distance >= d_sca_) {
+    return gradient;
+  }
+  
+  // compute point jacobians
+  Eigen::Vector2d p0(dist_result.start_point(0), dist_result.start_point(1));
+  
+  Eigen::Vector2d p1(dist_result.end_point(0), dist_result.end_point(1));
+  Eigen::Vector2d p1_l = p1 - virtual_robot_.w[link];
+  Eigen::Matrix<double,2,4> J_p1 = Eigen::Matrix<double,2,4>::Zero();
+  for(int column=0; column<=link; column++) {
+    J_p1.col(column) << -p1_l(1), p1_l(0);
+  }
+  J_p1 += virtual_robot_.J[link];
+  
+  // compute gradient
+  gradient = m_sca_ * (dist_result.distance - d_sca_) * J_p1.transpose() * (p1 - p0) / dist_result.distance;
   
   return gradient;
 }
@@ -210,12 +262,6 @@ Eigen::Vector4d ASCController::computeLinkPairGradient(int link_p0, int link_p1)
 Eigen::Vector4d ASCController::getGradientSCA() {
   Eigen::Vector4d gradient(0.0, 0.0, 0.0, 0.0);
   
-  // transform ssv models
-  for(int link=0; link<4; link++) {
-    link_ssv_[link].set_p0(Eigen::Vector4f(virtual_robot_.w[link](0), virtual_robot_.w[link](1), 0.0, 0.0));
-    link_ssv_[link].set_p1(Eigen::Vector4f(virtual_robot_.w[link+1](0), virtual_robot_.w[link+1](1), 0.0, 0.0));
-  }
-  
   gradient += computeLinkPairGradient(0,2);
   gradient += computeLinkPairGradient(0,3);
   gradient += computeLinkPairGradient(1,3);
@@ -224,7 +270,13 @@ Eigen::Vector4d ASCController::getGradientSCA() {
 }
 
 Eigen::Vector4d ASCController::getGradientOfCost() {
-  return getGradientJLA() + getGradientSCA();
+  // transform ssv models
+  for(int link=0; link<4; link++) {
+    link_ssv_[link].set_p0(Eigen::Vector4f(virtual_robot_.w[link](0), virtual_robot_.w[link](1), 0.0, 0.0));
+    link_ssv_[link].set_p1(Eigen::Vector4f(virtual_robot_.w[link+1](0), virtual_robot_.w[link+1](1), 0.0, 0.0));
+  }
+  
+  return getGradientJLA() + getGradientSCA() + getGradientCA();
 }
 
 void ASCController::updateRobotState() {

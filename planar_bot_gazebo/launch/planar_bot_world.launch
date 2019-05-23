@@ -3,11 +3,11 @@
   <!-- these are the arguments you can pass this launch file, for example paused:=true -->
   <arg name="paused" default="false"/>
   <arg name="use_sim_time" default="true"/>
-  <arg name="gui" default="true"/>
+  <arg name="gui" default="false"/>
   <arg name="headless" default="false"/>
   <arg name="debug" default="false"/>
   
-  <arg name="initial_configuration_1" default="1.0"/>
+  <arg name="initial_configuration_1" default="1.7"/>
   <arg name="initial_configuration_2" default="-0.5"/>
   <arg name="initial_configuration_3" default="-0.5"/>
   <arg name="initial_configuration_4" default="0.3"/>
