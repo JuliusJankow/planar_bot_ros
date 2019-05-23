@@ -13,3 +13,13 @@ planar_bot:
       - joint3
       - joint4
     task_space_error_feedback_gain: 5.0
+    
+  # ASC Controller
+  asc_controller:
+    type: "planar_bot_control/ASCController"
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+    task_space_error_feedback_gain: 5.0

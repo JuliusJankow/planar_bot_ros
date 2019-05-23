@@ -47,12 +47,11 @@ private:
     std::vector<double> link_length_;
     Eigen::Vector4d q_d_;
     Eigen::Matrix2d K_e_;
-    double k_p_{400.0};
-    double k_d_{100.0};
+    double k_p_{200.0};
+    double k_d_{80.0};
     double dw_max_{0.2};
 
     void goalCB(const std_msgs::Float64MultiArrayConstPtr& msg);
-    // void enforceJointLimits(double &command, unsigned int index);
 }; // class
 
 } // namespace
