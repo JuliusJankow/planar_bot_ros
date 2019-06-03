@@ -15,5 +15,13 @@
       It expects an EffortJointInterface type of hardware interface.
     </description>
   </class>
+  
+  <class name="planar_bot_control/PIKController" type="planar_bot_control::PIKController"
+         base_class_type="controller_interface::ControllerBase">
+    <description>
+      The predictive IK controller moves the robot to a task space goal while optimizing in null space for a fixed time horizon.
+      It expects an EffortJointInterface type of hardware interface.
+    </description>
+  </class>
 
 </library>

@@ -35,6 +35,7 @@ catkin_package(
 add_library(${PROJECT_NAME}
   src/rmrc_controller.cpp
   src/asc_controller.cpp
+  src/predictive_ik_controller.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
