@@ -33,9 +33,10 @@ catkin_package(
   )
 
 add_library(${PROJECT_NAME}
-  src/rmrc_controller.cpp
-  src/asc_controller.cpp
-  src/predictive_ik_controller.cpp
+  #src/rmrc_controller.cpp
+  #src/asc_controller.cpp
+  #src/predictive_ik_controller.cpp
+  src/reactive_task_tracking_controller.cpp src/rtt_subtask_calculations.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})

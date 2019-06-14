@@ -2,11 +2,10 @@
 #include <Eigen/Dense>
 
 #include "asc_controller.h"
+#include "common_global_var.h"
 #include "ssv/ssv_dist_calc.h"
 
 namespace planar_bot_control {
-
-static constexpr double kSampleTime = 0.001; // in seconds
 
 ASCController::ASCController() {}
 ASCController::~ASCController() {sub_task_space_goal_.shutdown();}
@@ -18,7 +17,11 @@ inline void generatePowers(int n, const double& x, std::vector<double>& powers) 
     }
 }
 
+#ifndef TORQUE_CONTROL
 bool ASCController::init(hardware_interface::PositionJointInterface* hw, ros::NodeHandle &n) {
+#else
+bool ASCController::init(hardware_interface::EffortJointInterface* hw, ros::NodeHandle &n) {
+#endif
   // List of controlled joints
   std::string param_name = "joints";
   if(!n.getParam(param_name, joint_names_)) {
@@ -35,7 +38,7 @@ bool ASCController::init(hardware_interface::PositionJointInterface* hw, ros::No
   if(!n.getParam("task_space_error_feedback_gain", k_e)) {
     ROS_WARN_STREAM("Failed to getParam task_space_error_feedback_gain, using default: " << k_e);
   }
-  K_e_.diagonal() << k_e, k_e;
+  K_e_ << k_e, 0.0, 0.0, k_e;
 
   // Get URDF
   urdf::Model urdf;
@@ -144,40 +147,35 @@ bool ASCController::sampleTaskSpline(const double& t, Eigen::Vector2d& w_d, Eige
     return true;
 }
 
-double q0_min = -0.3, q0_min_s = -0.15;
-double q0_max =  3.45, q0_max_s =  3.3;
-double q_m =  3.0, q_m_s =  2.8;
 Eigen::Vector4d ASCController::getGradientJLA() {
   Eigen::Vector4d gradient(0.0, 0.0, 0.0, 0.0);
   
-  if(virtual_robot_.q(0) < q0_min_s) {
-    gradient(0) = 2 * (virtual_robot_.q(0) - q0_min_s) / ((q0_min - q0_min_s) * (q0_min - q0_min_s));
+  if(virtual_robot_.q(0) < q0_min_soft) {
+    gradient(0) = 2 * (virtual_robot_.q(0) - q0_min_soft) / ((q0_min - q0_min_soft) * (q0_min - q0_min_soft));
   }
-  if(virtual_robot_.q(0) > q0_max_s) {
-    gradient(0) = 2 * (virtual_robot_.q(0) - q0_max_s) / ((q0_max - q0_max_s) * (q0_max - q0_max_s));
+  if(virtual_robot_.q(0) > q0_max_soft) {
+    gradient(0) = 2 * (virtual_robot_.q(0) - q0_max_soft) / ((q0_max - q0_max_soft) * (q0_max - q0_max_soft));
   }
   for(int i=1; i<4; i++) {
-    if(virtual_robot_.q(i) < -q_m_s) {
-      gradient(i) = 2 * (virtual_robot_.q(i) + q_m_s) / ((q_m - q_m_s) * (q_m - q_m_s));
+    if(virtual_robot_.q(i) < -q_abs_soft) {
+      gradient(i) = 2 * (virtual_robot_.q(i) + q_abs_soft) / ((q_abs - q_abs_soft) * (q_abs - q_abs_soft));
     }
-    if(virtual_robot_.q(i) > q_m_s) {
-      gradient(i) = 2 * (virtual_robot_.q(i) - q_m_s) / ((q_m - q_m_s) * (q_m - q_m_s));
+    if(virtual_robot_.q(i) > q_abs_soft) {
+      gradient(i) = 2 * (virtual_robot_.q(i) - q_abs_soft) / ((q_abs - q_abs_soft) * (q_abs - q_abs_soft));
     }
   }
   
   return gradient;
 }
 
-double x1 = 1.0, y1 = 0.5, radius1 = 0.1;
-double x2 = 2.0, y2 = 0.5, radius2 = 0.1;
 Eigen::Vector4d ASCController::getGradientCA() {
   Eigen::Vector4d gradient(0.0, 0.0, 0.0, 0.0);
   
   am_ssv_dist::PSS_object p1,p2;
-  p1.set_p0(Eigen::Vector4f(x1, y1, 0.0, 0.0));
-  p1.set_radius(radius1);
-  p2.set_p0(Eigen::Vector4f(x2, y2, 0.0, 0.0));
-  p2.set_radius(radius2);
+  p1.set_p0(Eigen::Vector4f(kX1, kY1, 0.0, 0.0));
+  p1.set_radius(kRadius1);
+  p2.set_p0(Eigen::Vector4f(kX2, kY2, 0.0, 0.0));
+  p2.set_radius(kRadius2);
   
   for(int link=0; link<4; link++) {
     gradient += computeLinkObstacleGradient(link, &p1);
@@ -305,39 +303,44 @@ void ASCController::updateRobotState() {
 }
 
 void ASCController::update(const ros::Time& t, const ros::Duration& period) {
-    Eigen::Vector2d w, w_d, dw_d;
-    Eigen::Vector4d dq_task(0.0, 0.0, 0.0, 0.0);
+  Eigen::Vector2d w, w_d, dw_d;
+  Eigen::Vector4d dq_task(0.0, 0.0, 0.0, 0.0);
 
-    // update forward kinematics and jacobian
-    updateRobotState();
+  // update forward kinematics and jacobian
+  updateRobotState();
 
-    // compute moore-penrose pseudo inverse
-    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXd> cod(virtual_robot_.J[4]);
-    Eigen::MatrixXd J_inv = cod.pseudoInverse();
+  // compute moore-penrose pseudo inverse
+  Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXd> cod(virtual_robot_.J[4]);
+  Eigen::MatrixXd J_inv = cod.pseudoInverse();
 
-    if(sampleTaskSpline(t.toSec(), w_d, dw_d)) {
-        // compute desired joint velocity for task
-        dq_task = J_inv * (K_e_ * (w_d - virtual_robot_.w[4]) + dw_d);
-    }
-    
-    // compute Null Space projector
-    Eigen::Matrix4d N = Eigen::Matrix4d::Identity() - J_inv * virtual_robot_.J[4];
+  if(sampleTaskSpline(t.toSec(), w_d, dw_d)) {
+      // compute desired joint velocity for task
+      dq_task = J_inv * (K_e_ * (w_d - virtual_robot_.w[4]) + dw_d);
+  }
 
-    // map cost function gradient to joint velocity
-    Eigen::Vector4d dq_n = -getGradientOfCost();
-    
-    Eigen::Vector4d dq_d = dq_task + alpha_ * N * dq_n;
-    virtual_robot_.q += dq_d * kSampleTime;
+  // compute Null Space projector
+  Eigen::Matrix4d N = Eigen::Matrix4d::Identity() - J_inv * virtual_robot_.J[4];
 
-    //double tau_max = 80.0;
-    for(unsigned int i=0; i<joint_names_.size(); i++) {
-        /*double q  = joints_[i].getPosition();
-        double dq = joints_[i].getVelocity();
-        double tau_c = k_p_ * (virtual_robot_.q(i) - q) + k_d_ * (dq_d(i) - dq);
-        tau_c = std::min(std::max(tau_c, -tau_max), tau_max);
-        joints_[i].setCommand(tau_c);*/
-        joints_[i].setCommand(virtual_robot_.q[i]);
-    }
+  // map cost function gradient to joint velocity
+  Eigen::Vector4d dq_n = -getGradientOfCost();
+
+  Eigen::Vector4d dq_d = dq_task + alpha_ * N * dq_n;
+  virtual_robot_.q += dq_d * period.toSec();
+
+#ifndef TORQUE_CONTROL
+  for(unsigned int i=0; i<joint_names_.size(); i++) {
+      joints_[i].setCommand(virtual_robot_.q[i]);
+  }
+#else
+  double tau_max = 80.0;
+  for(unsigned int i=0; i<joint_names_.size(); i++) {
+      double q  = joints_[i].getPosition();
+      double dq = joints_[i].getVelocity();
+      double tau_c = k_p_ * (virtual_robot_.q(i) - q) + k_d_ * (dq_d(i) - dq);
+      tau_c = std::min(std::max(tau_c, -tau_max), tau_max);
+      joints_[i].setCommand(tau_c);
+  }
+#endif
 }
 
 void ASCController::goalCB(const std_msgs::Float64MultiArrayConstPtr& msg) {
@@ -345,7 +348,7 @@ void ASCController::goalCB(const std_msgs::Float64MultiArrayConstPtr& msg) {
   
   Eigen::Vector2d w_end(msg->data[0], msg->data[1]);
   
-  double t_start = ros::Time::now().toSec() + 1.0;
+  double t_start = ros::Time::now().toSec() + 0.1;
   
   constructSpline(virtual_robot_.w[4], t_start, w_end, t_start + 3.0);
 }

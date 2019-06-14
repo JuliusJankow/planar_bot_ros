@@ -1,5 +1,5 @@
-#ifndef PIK_CONTROLLER_H
-#define PIK_CONTROLLER_H
+#ifndef RTT_CONTROLLER_H
+#define RTT_CONTROLLER_H
 
 #include <ros/node_handle.h>
 #include <urdf/model.h>
@@ -13,7 +13,6 @@
 #include <array>
 
 #include "ssv/ssv_objects.h"
-#include "common_global_var.h"
 
 namespace planar_bot_control
 {
@@ -26,18 +25,18 @@ struct Spline {
 
 struct RobotState {
   Eigen::Vector4d q;
+  Eigen::Vector4d dq;
   std::array<Eigen::Vector2d, 5> w;
   std::array<Eigen::Matrix<double,2,4> , 5> J;
-  std::array<am_ssv_dist::LSS_object, 4> link_ssv;
 };
 
-class PIKController : public controller_interface::Controller<hardware_interface::PositionJointInterface>
+class RTTController : public controller_interface::Controller<hardware_interface::EffortJointInterface>
 {
 public:
-  PIKController();
-  ~PIKController();
+  RTTController();
+  ~RTTController();
 
-  bool init(hardware_interface::PositionJointInterface* hw, ros::NodeHandle &n);  
+  bool init(hardware_interface::EffortJointInterface* hw, ros::NodeHandle &n);
   void starting(const ros::Time& time);
   void update(const ros::Time& /*time*/, const ros::Duration& /*period*/);
 
@@ -48,29 +47,43 @@ public:
 private:
   ros::Subscriber sub_task_space_goal_;
 
-  void updateRobotState(RobotState& robot);
+  void updateRobotState();
+  
   bool sampleTaskSpline(const double& t, Eigen::Vector2d& w_d, Eigen::Vector2d& dw_d);
   void constructSpline(const Eigen::Vector2d& w_start, const double t_start, const Eigen::Vector2d& w_end, const double t_end);
   void constructSpline(const Eigen::Vector2d& w_start, const double t_start, const Eigen::Vector2d& w_end);
-  Eigen::Vector4d getOptimizedNullSpaceCommand(const Eigen::Vector2d& dx, const double& sample_time);
+  
+  Eigen::Vector4d getTauFromSubtasks();
 
   std::vector<urdf::JointConstSharedPtr> joint_urdfs_;
   std::vector<double> link_length_;
   
-  Eigen::Matrix2d K_e_;
-  double k_p_{200.0};
-  double k_d_{80.0};
+  Eigen::Matrix2d K_p_;
+  Eigen::Matrix2d K_d_;
+  
   double dw_max_{0.2};
-  double alpha_{20.0};
+  double alpha_{1.0};
+  
+  // parameter (self) collision avoidance (sca)
+  double d_sca_{0.15};
+  double m_sca_{3.0};
   
   RobotState robot_;
   
-  Eigen::Vector4d u_;
+  Eigen::Vector2d x_des, dx_des;
   
-  ros::Time last_update_time_;
+  double trajectory_time_;
+  
+  std::array<am_ssv_dist::LSS_object, 4> link_ssv_;
 
   void goalCB(const std_msgs::Float64MultiArrayConstPtr& msg);
 }; // class
+
+Eigen::Vector4d getSubtaskTorqueJLA(const RobotState& robot);
+Eigen::Vector4d getSubtaskTorqueCA(const RobotState& robot, const int link_idx, 
+                                          const am_ssv_dist::LSS_object* lss, const am_ssv_dist::PSS_object* pss);
+Eigen::Vector4d getSubtaskTorqueSCA(const RobotState& robot, const int link_idx_0, const int link_idx_1,
+                                           const am_ssv_dist::LSS_object* lss_0, const am_ssv_dist::LSS_object* lss_1);
 
 } // namespace
 

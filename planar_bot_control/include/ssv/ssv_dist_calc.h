@@ -22,8 +22,6 @@
 #ifndef __DIST_CALCULATOR__HPP__
 #define __DIST_CALCULATOR__HPP__
 
-/*#include <cstdlib>
-#include <cfloat>*/
 #include <Eigen/Dense>
 #include "ssv_objects.h"
 
@@ -91,7 +89,7 @@ namespace am_ssv_dist
     int cdsLL_ref(const LSS_T0 *lss0, const LSS_T1 *lss1, SSV_DistCalcResult &drs) const;
   }; // class
 
-  void SSV_DistCalculator::cdPP(const SSV_object *p_from, const SSV_object *p_to, SSV_DistCalcResult &dr) const
+  inline void SSV_DistCalculator::cdPP(const SSV_object *p_from, const SSV_object *p_to, SSV_DistCalcResult &dr) const
   {
     cdsPP(p_from,p_to,dr);
     dr.distance=sqrt(dr.distance) - p_from->radius() - p_to->radius();
@@ -105,16 +103,16 @@ namespace am_ssv_dist
     drs.distance = drs.con_vec.squaredNorm();
   }
   
-  void SSV_DistCalculator::cdPL(const SSV_object *p, const SSV_object *l, SSV_DistCalcResult &dr) const
+  inline void SSV_DistCalculator::cdPL(const SSV_object *p, const SSV_object *l, SSV_DistCalcResult &dr) const
   {
     SSV_DistCalculator::cdsPL(p,l,dr,from_to);
-    dr.distance=sqrt(dr.distance) - p->radius() - l->radius();
+    dr.distance=sqrt(dr.distance); // - p->radius() - l->radius();
   }
 
-  void SSV_DistCalculator::cdLP(const SSV_object *l, const SSV_object *p, SSV_DistCalcResult &dr) const
+  inline void SSV_DistCalculator::cdLP(const SSV_object *l, const SSV_object *p, SSV_DistCalcResult &dr) const
   {
     SSV_DistCalculator::cdsPL(p,l,dr,to_from);
-    dr.distance=sqrt(dr.distance) - p->radius() - l->radius();
+    dr.distance=sqrt(dr.distance); // - p->radius() - l->radius();
   }
 
   inline void SSV_DistCalculator::cdsPL(const SSV_object *p, const SSV_object *l,
@@ -171,7 +169,7 @@ namespace am_ssv_dist
     drs.distance=drs.con_vec.squaredNorm();
   }
 
-  void SSV_DistCalculator::cdLL(const SSV_object *l_from, const SSV_object *l_to, SSV_DistCalcResult &dr) const
+  inline void SSV_DistCalculator::cdLL(const SSV_object *l_from, const SSV_object *l_to, SSV_DistCalcResult &dr) const
   {
     cdsLL(l_from,l_to,dr);
     dr.distance=sqrt(dr.distance) - l_from->radius() - l_to->radius();
@@ -185,7 +183,7 @@ namespace am_ssv_dist
   }
   
   template  <class LSS_T0, class LSS_T1 >
-  int SSV_DistCalculator::cdsLL_ref(const LSS_T0 *lss0, const LSS_T1 *lss1, SSV_DistCalcResult &drs) const
+  inline int SSV_DistCalculator::cdsLL_ref(const LSS_T0 *lss0, const LSS_T1 *lss1, SSV_DistCalcResult &drs) const
   {
     int parallel=0;
     const Vector4f &l00=lss0->pt0, &l10=lss1->pt0;

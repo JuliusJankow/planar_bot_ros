@@ -14,9 +14,9 @@ int main(int argc, char **argv) {
   
   double t0 = ros::Time::now().toSec();
   
-  ros::Duration period(0.001);
+  ros::Duration period(0.04);
   
-  ros::Rate loop_rate(1000);
+  ros::Rate loop_rate(period);
   unsigned int loop_counter = 0;
 
   while (ros::ok()) {
@@ -25,7 +25,9 @@ int main(int argc, char **argv) {
     cm.update(t, period);
     robot.update();
 
-    loop_rate.sleep();
+    if(!loop_rate.sleep()) {
+      ROS_DEBUG("Time exceeded");
+    }
     loop_counter++;
   }
 }

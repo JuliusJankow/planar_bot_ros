@@ -12,6 +12,10 @@
   <material name="green">
     <color rgba="0.0 0.8 0.0 1.0"/>
   </material>
+  
+  <material name="yellow">
+    <color rgba="${255/255} ${150/255} ${15/255} 1.0"/>
+  </material>
 
   <material name="grey">
     <color rgba="0.2 0.2 0.2 1.0"/>

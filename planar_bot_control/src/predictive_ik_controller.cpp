@@ -2,35 +2,36 @@
 #include <Eigen/Dense>
 
 #include "predictive_ik_controller.h"
+#include "common_global_var.h"
 #include "ssv/ssv_dist_calc.h"
 
 namespace planar_bot_control {
 
-static constexpr double kSampleTime = 0.001; // in seconds
-
-// parameter (self) collision avoidance (sca)
-static constexpr double kD_sca{0.15};
-static constexpr double kM_sca{3.0};
-
 // parameter for preceding horizon
 static constexpr int kNumOptIter{20};
-static constexpr int kTHorizon{150};
-static constexpr double kKQ{1.0};
-static constexpr double kKDq{1.0};
-static constexpr double kKDu{1.0};
-static constexpr double kAlphaPH{0.5};
+static constexpr int kTHorizon{5};
+static constexpr double kKQ{100};
+static constexpr double kKDq{10};
+static constexpr double kKDu{0.1};
+static constexpr double kAlphaPH{0.8};
 
 PIKController::PIKController() {}
 PIKController::~PIKController() {sub_task_space_goal_.shutdown();}
 
 inline void generatePowers(int n, const double& x, std::vector<double>& powers) {
-    powers[0] = 1.0;
-    for (int i=1; i<=n; ++i) {
-      powers[i] = powers[i-1]*x;
-    }
+  powers[0] = 1.0;
+  for (int i=1; i<=n; ++i) {
+    powers[i] = powers[i-1]*x;
+  }
 }
 
-bool PIKController::init(hardware_interface::PositionJointInterface* hw, ros::NodeHandle &n) {
+inline void getMoorePenrosePinv(const Eigen::Matrix<double,2,4>& mat, Eigen::Matrix<double,4,2>& mat_inv) {
+  Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXd> cod(mat);
+  mat_inv = cod.pseudoInverse();
+}
+
+bool PIKController::init(hardware_interface::PositionJointInterface* hw, ros::NodeHandle &n)
+{
   // List of controlled joints
   std::string param_name = "joints";
   if(!n.getParam(param_name, joint_names_)) {
@@ -47,7 +48,8 @@ bool PIKController::init(hardware_interface::PositionJointInterface* hw, ros::No
   if(!n.getParam("task_space_error_feedback_gain", k_e)) {
     ROS_WARN_STREAM("Failed to getParam task_space_error_feedback_gain, using default: " << k_e);
   }
-  K_e_.diagonal() << k_e, k_e;
+  K_e_ << k_e, 0.0, 0.0, k_e;
+  ROS_INFO_STREAM(K_e_);
 
   // Get URDF
   urdf::Model urdf;
@@ -157,30 +159,29 @@ bool PIKController::sampleTaskSpline(const double& t, Eigen::Vector2d& w_d, Eige
     return true;
 }
 
-double q0_min = -0.3, q0_min_s = -0.15;
-double q0_max =  3.45, q0_max_s =  3.3;
-double q_m =  3.0, q_m_s =  2.8;
 Eigen::Vector4d getGradientJLA(const RobotState& robot) {
   Eigen::Vector4d gradient(0.0, 0.0, 0.0, 0.0);
-  
-  if(robot.q(0) < q0_min_s) {
-    gradient(0) = 2 * (robot.q(0) - q0_min_s) / ((q0_min - q0_min_s) * (q0_min - q0_min_s));
+
+  if(robot.q(0) < q0_min_soft) {
+    gradient(0) = 2 * (robot.q(0) - q0_min_soft) / ((q0_min - q0_min_soft) * (q0_min - q0_min_soft));
   }
-  if(robot.q(0) > q0_max_s) {
-    gradient(0) = 2 * (robot.q(0) - q0_max_s) / ((q0_max - q0_max_s) * (q0_max - q0_max_s));
+  if(robot.q(0) > q0_max_soft) {
+    gradient(0) = 2 * (robot.q(0) - q0_max_soft) / ((q0_max - q0_max_soft) * (q0_max - q0_max_soft));
   }
   for(int i=1; i<4; i++) {
-    if(robot.q(i) < -q_m_s) {
-      gradient(i) = 2 * (robot.q(i) + q_m_s) / ((q_m - q_m_s) * (q_m - q_m_s));
+    if(robot.q(i) < -q_abs_soft) {
+      gradient(i) = 2 * (robot.q(i) + q_abs_soft) / ((q_abs - q_abs_soft) * (q_abs - q_abs_soft));
     }
-    if(robot.q(i) > q_m_s) {
-      gradient(i) = 2 * (robot.q(i) - q_m_s) / ((q_m - q_m_s) * (q_m - q_m_s));
+    if(robot.q(i) > q_abs_soft) {
+      gradient(i) = 2 * (robot.q(i) - q_abs_soft) / ((q_abs - q_abs_soft) * (q_abs - q_abs_soft));
     }
   }
   
   return gradient;
 }
 
+static constexpr double kD_obs_pik = 0.2;
+static constexpr double kM_obs_pik = 50.0;
 Eigen::Vector4d computeLinkObstacleGradient(const RobotState& robot, int link, am_ssv_dist::PSS_object* p) {
   Eigen::Vector4d gradient = Eigen::Vector4d::Zero();
 
@@ -193,7 +194,7 @@ Eigen::Vector4d computeLinkObstacleGradient(const RobotState& robot, int link, a
   am_ssv_dist::SSV_DistCalcResult dist_result;
   dist_calc.cdPL(p,&(robot.link_ssv[link]),dist_result);
   
-  if(dist_result.distance >= kD_sca) {
+  if(dist_result.distance >= kD_obs_pik) {
     return gradient;
   }
   
@@ -209,11 +210,13 @@ Eigen::Vector4d computeLinkObstacleGradient(const RobotState& robot, int link, a
   J_p1 += robot.J[link];
   
   // compute gradient
-  gradient = kM_sca * (dist_result.distance - kD_sca) * J_p1.transpose() * (p1 - p0) / dist_result.distance;
+  gradient = kM_obs_pik * (dist_result.distance - kD_obs_pik) * J_p1.transpose() * (p1 - p0) / dist_result.distance;
   
   return gradient;
 }
 
+static constexpr double kD_sca_pik = 0.2;
+static constexpr double kM_sca_pik = 50.0;
 Eigen::Vector4d computeLinkPairGradient(const RobotState& robot, int link_p0, int link_p1) {
   Eigen::Vector4d gradient = Eigen::Vector4d::Zero();
 
@@ -226,7 +229,7 @@ Eigen::Vector4d computeLinkPairGradient(const RobotState& robot, int link_p0, in
   am_ssv_dist::SSV_DistCalcResult dist_result;
   dist_calc.cdLL(&(robot.link_ssv[link_p0]),&(robot.link_ssv[link_p1]),dist_result);
   
-  if(dist_result.distance >= kD_sca) {
+  if(dist_result.distance >= kD_sca_pik) {
     return gradient;
   }
   
@@ -248,21 +251,19 @@ Eigen::Vector4d computeLinkPairGradient(const RobotState& robot, int link_p0, in
   J_p1 += robot.J[link_p1];
   
   // compute gradient
-  gradient = kM_sca * (dist_result.distance - kD_sca) * (J_p0.transpose() - J_p1.transpose()) * (p0 - p1) / dist_result.distance;
+  gradient = kM_sca_pik * (dist_result.distance - kD_sca_pik) * (J_p0.transpose() - J_p1.transpose()) * (p0 - p1) / dist_result.distance;
   
   return gradient;
 }
 
-double x1 = 1.0, y1 = 0.5, radius1 = 0.1;
-double x2 = 2.0, y2 = 0.5, radius2 = 0.1;
 Eigen::Vector4d getGradientCA(const RobotState& robot) {
   Eigen::Vector4d gradient(0.0, 0.0, 0.0, 0.0);
   
   am_ssv_dist::PSS_object p1,p2;
-  p1.set_p0(Eigen::Vector4f(x1, y1, 0.0, 0.0));
-  p1.set_radius(radius1);
-  p2.set_p0(Eigen::Vector4f(x2, y2, 0.0, 0.0));
-  p2.set_radius(radius2);
+  p1.set_p0(Eigen::Vector4f(kX1, kY1, 0.0, 0.0));
+  p1.set_radius(kRadius1);
+  p2.set_p0(Eigen::Vector4f(kX2, kY2, 0.0, 0.0));
+  p2.set_radius(kRadius2);
   
   for(int link=0; link<4; link++) {
     gradient += computeLinkObstacleGradient(robot, link, &p1);
@@ -292,22 +293,12 @@ Eigen::Vector4d getGradientOfCost(RobotState& robot) {
   return getGradientJLA(robot) + getGradientSCA(robot) + getGradientCA(robot);
 }
 
-Eigen::Matrix4d calculateHessFq(const RobotState& robot, const Eigen::Matrix<double,2,4>& J_inv, 
+Eigen::Matrix4d calculateHessFq(const RobotState& robot, const Eigen::Matrix<double,4,2>& J_inv, 
                                 const Eigen::Vector2d& dx, const Eigen::Vector4d& u)
 {
-  /*Eigen::Vector4d G1(Eigen::Vector4d::Zero()), G2(Eigen::Vector4d::Zero());
-  for(int j=0; j<4; j++) { // for each joint j
-    for(int i=j; i<4; i++) { // for each link i actuated by joint j
-      double link_angle = 0.0;
-      for(int n=0; n<i; n++) { // for each joint n influencing position of link i
-        link_angle += robot.q[n];
-      }
-      G1(j) -= link_length_[i] * cos(link_angle);
-      G2(j) -= link_length_[i] * sin(link_angle);
-    }
-  }*/
+  Eigen:Matrix4d HessFq;
+  Eigen::Matrix<double,2,4> J(robot.J[4]);
   
-  Eigen:Matrix4d JinvTimesJq(Eigen::Matrix4d::Zero());
   for(int k=0; k<4; k++) { // for each joint k as second derivative
     Eigen::Matrix<double,2,4> Jqk;
     for(int j=0; j<4; j++) { // for each joint j as first derivative
@@ -315,57 +306,64 @@ Eigen::Matrix4d calculateHessFq(const RobotState& robot, const Eigen::Matrix<dou
       Jqk(0,j) = -J(1,idx); // G1(idx);
       Jqk(1,j) =  J(0,idx); // G2(idx);
     }
-    JinvTimesJq += J_inv * Jqk;
+    Eigen::Matrix4d J_inv_times_jqk = J_inv * Jqk;
+    Eigen::Matrix<double,4,2> J_inv_qk = ((J_inv_times_jqk * (Eigen::Matrix4d::Identity() - J_inv*J)).transpose() - J_inv_times_jqk) * J_inv;
+    HessFq.col(k) = J_inv_qk * dx + (Eigen::Matrix4d::Identity() - J_inv_qk * J - J_inv_times_jqk) * u;
   }
   
-  
+  return HessFq;
 }
 
-Eigen::Vector4d PIKController::getOptimizedNullSpaceCommand(const Eigen::Matrix4d& N0, 
-                                                            const Eigen::Vector4d& dq_task)
+Eigen::Vector4d PIKController::getOptimizedNullSpaceCommand(const Eigen::Vector2d& dx, const double& sample_time)
 {
   RobotState predicted_robot;
   for(int i=0; i<4; i++) {
     predicted_robot.link_ssv[i].set_radius(0.07);
   }
   
-  Eigen::Vector4d dq, u, du(0.0, 0.0, 0.0, 0.0), lambda1, dlambda1, lambda2, dlambda2;
+  Eigen::Vector4d u, lambda1, dlambda1, lambda2, dlambda2;
+  Eigen::Matrix<double,2,4> J;
+  Eigen::Matrix<double,4,2> J_inv;
+  std::array<Eigen::Matrix4d, kTHorizon> N, hess_fq;
+  std::array<Eigen::Vector4d, kTHorizon> du, dq, grad_H;
+  
+  for(int k=0; k<kTHorizon; k++) {
+    du[k] = Eigen::Vector4d::Zero();
+  }
   
   for(int i=0; i<kNumOptIter; i++) {
     predicted_robot.q = robot_.q;
     u = u_;
-    for(int k=0; k<kTHorizon; k++) {
-      dq = dq_task + N0 * u;
-      predicted_robot.q = predicted_robot.q + kSampleTime * dq;
-      u = u + kSampleTime * du;
+    for(int k=0; k<kTHorizon; k++) { // forward simulation of system
+      // forward/inverse kinematics
+      updateRobotState(predicted_robot);
+      J = predicted_robot.J[4];
+      getMoorePenrosePinv(J, J_inv);
+      N[k] = Eigen::Matrix4d::Identity() - J_inv * J;
+      
+      // numeric integration
+      dq[k] = J_inv * dx + N[k] * u;
+      predicted_robot.q += sample_time * dq[k];
+      u += sample_time * du[k];
+      
+      // calculation of current gradients
+      hess_fq[k] = calculateHessFq(predicted_robot, J_inv, dx, u);
+      grad_H[k] = getGradientOfCost(predicted_robot);
     }
-    
-    updateRobotState(predicted_robot);
-    Eigen::MatrixXd J(predicted_robot.J[4]);
 
-    // compute moore-penrose pseudo inverse
-    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXd> cod(J);
-    Eigen::MatrixXd J_inv = cod.pseudoInverse();
-    // compute Null Space projector
-    Eigen::Matrix4d N1 = Eigen::Matrix4d::Identity() - J_inv * J;
-    
-    Eigen::Matrix4d hess_fq(calculateHessFq(predicted_robot, J_inv));
-    
-    Eigen::Vector4d grad_H(getGradientOfCost(predicted_robot));
-    
-    lambda1 = Eigen::Vector4d(0.0, 0.0, 0.0, 0.0);
+    lambda1 = Eigen::Vector4d(Eigen::Vector4d::Zero());
     lambda2 = lambda1;
-    for(int k=kTHorizon; k>0; k--) {
-      dlambda1 = - hess_fq * (lambda1 + kKDq * dq) - kKQ * grad_H;
-      dlambda2 = - N1 * (lambda1 + kKDq * dq);
-      lambda1 = lambda1 - kSampleTime * dlambda1;
-      lambda2 = lambda2 - kSampleTime * dlambda2;
+    for(int k=kTHorizon-1; k>=0; k--) { // backward simulation of lambda de's
+      dlambda1 = - hess_fq[k].transpose() * (lambda1 + kKDq * dq[k]) - kKQ * grad_H[k];
+      dlambda2 = - N[k] * (lambda1 + kKDq * dq[k]);
+      lambda1 = lambda1 - sample_time * dlambda1;
+      lambda2 = lambda2 - sample_time * dlambda2;
+      
+      du[k] = du[k] - kAlphaPH * (kKDu * du[k] + lambda2);
     }
-    
-    du = (1 - kAlphaPH * kKDu) * du - kAlphaPH * lambda2;
   }
   
-  return du;
+  return du[0];
 }
 
 void PIKController::updateRobotState(RobotState& robot) {
@@ -395,39 +393,48 @@ void PIKController::updateRobotState(RobotState& robot) {
 }
 
 void PIKController::update(const ros::Time& t, const ros::Duration& period) {
-    Eigen::Vector2d w, w_d, dw_d;
-    Eigen::Vector4d dq_task(0.0, 0.0, 0.0, 0.0);
+  double sample_time = period.toSec();
 
-    // update forward kinematics and jacobian
-    updateRobotState(robot_);
-    Eigen::MatrixXd J(robot_.J[4]);
+  Eigen::Vector2d w, w_d, dw_d(0.0,0.0);
+  Eigen::Vector4d dq_task(0.0, 0.0, 0.0, 0.0);
 
-    // compute moore-penrose pseudo inverse
-    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXd> cod(J);
-    Eigen::MatrixXd J_inv = cod.pseudoInverse();
-    // compute Null Space projector
-    Eigen::Matrix4d N = Eigen::Matrix4d::Identity() - J_inv * J;
+  // update forward kinematics and jacobian
+  updateRobotState(robot_);
+  Eigen::MatrixXd J(robot_.J[4]);
 
-    if(sampleTaskSpline(t.toSec(), w_d, dw_d)) {
-        // compute desired joint velocity for task
-        dq_task = J_inv * (K_e_ * (w_d - robot_.w[4]) + dw_d);
-    }
+  // compute moore-penrose pseudo inverse
+  Eigen::Matrix<double,4,2> J_inv;
+  getMoorePenrosePinv(J,J_inv);
+  // compute Null Space projector
+  Eigen::Matrix4d N = Eigen::Matrix4d::Identity() - J_inv * J;
 
-    // optimize null space acceleration for a fixed horizon
-    u_ = u_ + kSampleTime * getOptimizedNullSpaceCommand(N, dq_task);
-    
-    Eigen::Vector4d dq_d = dq_task + alpha_ * N * u_;
-    robot_.q += dq_d * kSampleTime;
+  if(sampleTaskSpline(t.toSec(), w_d, dw_d)) {
+      // compute desired joint velocity for task
+      dq_task = J_inv * (K_e_ * (w_d - robot_.w[4]) + dw_d);
+  }
 
-    // double tau_max = 80.0;
-    for(unsigned int i=0; i<joint_names_.size(); i++) {
-        /*double q  = joints_[i].getPosition();
-        double dq = joints_[i].getVelocity();
-        double tau_c = k_p_ * (virtual_robot_.q(i) - q) + k_d_ * (dq_d(i) - dq);
-        tau_c = std::min(std::max(tau_c, -tau_max), tau_max);
-        joints_[i].setCommand(tau_c);*/
-        joints_[i].setCommand(robot_.q[i]);
-    }
+  // optimize null space acceleration for a fixed horizon
+  u_ = u_ + sample_time * getOptimizedNullSpaceCommand(dw_d, sample_time);
+
+  Eigen::Vector4d dq_d = dq_task + alpha_ * N * u_;
+  robot_.q += dq_d * sample_time;
+
+#ifndef TORQUE_CONTROL
+  for(unsigned int i=0; i<joint_names_.size(); i++) {
+      joints_[i].setCommand(robot_.q[i]);
+  }
+#else
+  double tau_max = 80.0;
+  for(unsigned int i=0; i<joint_names_.size(); i++) {
+      double q  = joints_[i].getPosition();
+      double dq = joints_[i].getVelocity();
+      double tau_c = k_p_ * (robot_.q(i) - q) + k_d_ * (dq_d(i) - dq);
+      tau_c = std::min(std::max(tau_c, -tau_max), tau_max);
+      joints_[i].setCommand(tau_c);
+  }
+#endif
+  
+  last_update_time_ = t;
 }
 
 void PIKController::goalCB(const std_msgs::Float64MultiArrayConstPtr& msg) {
@@ -435,7 +442,7 @@ void PIKController::goalCB(const std_msgs::Float64MultiArrayConstPtr& msg) {
   
   Eigen::Vector2d w_end(msg->data[0], msg->data[1]);
   
-  double t_start = ros::Time::now().toSec() + 1.0;
+  double t_start = last_update_time_.toSec() + 0.1;
   
   constructSpline(robot_.w[4], t_start, w_end, t_start + 3.0);
 }

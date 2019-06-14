@@ -1,5 +1,5 @@
-#ifndef ASC_CONTROLLER_H
-#define ASC_CONTROLLER_H
+#ifndef RTT_CONTROLLER_H
+#define RTT_CONTROLLER_H
 
 #include <ros/node_handle.h>
 #include <urdf/model.h>
@@ -13,6 +13,7 @@
 #include <array>
 
 #include "ssv/ssv_objects.h"
+#include "common_global_var.h"
 
 namespace planar_bot_control
 {
@@ -29,13 +30,21 @@ struct RobotState {
   std::array<Eigen::Matrix<double,2,4> , 5> J;
 };
 
+#ifndef TORQUE_CONTROL
 class ASCController : public controller_interface::Controller<hardware_interface::PositionJointInterface>
+#else
+class ASCController : public controller_interface::Controller<hardware_interface::EffortJointInterface>
+#endif
 {
 public:
   ASCController();
   ~ASCController();
 
+#ifndef TORQUE_CONTROL
   bool init(hardware_interface::PositionJointInterface* hw, ros::NodeHandle &n);
+#else
+  bool init(hardware_interface::EffortJointInterface* hw, ros::NodeHandle &n);
+#endif
   void starting(const ros::Time& time);
   void update(const ros::Time& /*time*/, const ros::Duration& /*period*/);
 
