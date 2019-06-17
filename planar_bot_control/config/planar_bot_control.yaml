@@ -2,7 +2,7 @@ planar_bot:
   # Publish all joint states -----------------------------------
   joint_state_controller:
     type: joint_state_controller/JointStateController
-    publish_rate: 50
+    publish_rate: 30
 
   # RMRC Controller
   rmrc_controller:
@@ -12,7 +12,7 @@ planar_bot:
       - joint2
       - joint3
       - joint4
-    task_space_error_feedback_gain: 5.0
+    drift_compensation: 20.0
     
   # ASC Controller
   asc_controller:
@@ -22,7 +22,16 @@ planar_bot:
       - joint2
       - joint3
       - joint4
-    task_space_error_feedback_gain: 20.0
+    hard_limits_min: [-0.3, -3.0, -3.0, -3.0]
+    hard_limits_max: [3.45, 3.0, 3.0, 3.0]
+    soft_limits_min: [-0.15, -2.8, -2.8, -2.8]
+    soft_limits_max: [3.3, 2.8, 2.8, 2.8]
+    drift_compensation: 20.0
+    k_jla: 5.0
+    d_sca: 0.1
+    m_sca: 80.0
+    d_obs: 0.1
+    m_obs: 80.0
     
   # PIK Controller
   pik_controller:
@@ -32,7 +41,22 @@ planar_bot:
       - joint2
       - joint3
       - joint4
-    task_space_error_feedback_gain: 20.0
+    hard_limits_min: [-0.3, -3.0, -3.0, -3.0]
+    hard_limits_max: [3.45, 3.0, 3.0, 3.0]
+    soft_limits_min: [-0.15, -2.8, -2.8, -2.8]
+    soft_limits_max: [3.3, 2.8, 2.8, 2.8]
+    drift_compensation: 20.0
+    num_opt_iterations: 20.0
+    T_horizon: 5
+    k_q: 100.0
+    k_dq: 10.0
+    k_du: 0.1
+    alpha_opt: 0.8
+    k_jla: 5.0
+    d_sca: 0.1
+    m_sca: 80.0
+    d_obs: 0.1
+    m_obs: 80.0
     
   # RTT Controller
   rtt_controller:
@@ -43,3 +67,19 @@ planar_bot:
       - joint3
       - joint4
     task_space_p_gain: 100.0
+    hard_limits_min: [-0.3, -3.0, -3.0, -3.0]
+    hard_limits_max: [3.45, 3.0, 3.0, 3.0]
+    soft_limits_min: [-0.15, -2.8, -2.8, -2.8]
+    soft_limits_max: [3.3, 2.8, 2.8, 2.8]
+    k_jla: 5.0
+    d_jla: 10.0
+    d_sca: 0.1
+    m_sca: 80.0
+    damping_sca: 5.0
+    d_obs: 20.0
+    m_obs: 1200.0
+    inflation: 0.8
+    time_scaling_lower_thresh: 0.05
+    time_scaling_upper_thresh: 0.25
+    joint_damping: 5.0
+    minimum_active_distance: 0.05

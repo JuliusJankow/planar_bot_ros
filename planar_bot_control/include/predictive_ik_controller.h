@@ -2,34 +2,17 @@
 #define PIK_CONTROLLER_H
 
 #include <ros/node_handle.h>
-#include <urdf/model.h>
-#include <boost/scoped_ptr.hpp>
-#include <realtime_tools/realtime_publisher.h>
 #include <hardware_interface/joint_command_interface.h>
 #include <controller_interface/controller.h>
 #include <std_msgs/Float64MultiArray.h>
 #include <control_msgs/JointControllerState.h>
-#include <realtime_tools/realtime_buffer.h>
 #include <array>
-
-#include "ssv/ssv_objects.h"
-#include "common_global_var.h"
+#include <ssv/ssv_objects.h>
+#include <kinematics/kinematics.h>
+#include <planning/spline.h>
 
 namespace planar_bot_control
 {
-
-struct Spline {
-  std::array<double, 6> coeff{{0.0, 0.0, 0.0, 0.0, 0.0, 0.0}};
-  double start_time{0.0};
-  double end_time{0.0};
-};
-
-struct RobotState {
-  Eigen::Vector4d q;
-  std::array<Eigen::Vector2d, 5> w;
-  std::array<Eigen::Matrix<double,2,4> , 5> J;
-  std::array<am_ssv_dist::LSS_object, 4> link_ssv;
-};
 
 class PIKController : public controller_interface::Controller<hardware_interface::PositionJointInterface>
 {
@@ -41,35 +24,57 @@ public:
   void starting(const ros::Time& time);
   void update(const ros::Time& /*time*/, const ros::Duration& /*period*/);
 
-  std::vector< std::string > joint_names_;
   std::vector< hardware_interface::JointHandle > joints_;
-  realtime_tools::RealtimeBuffer<std::vector<Spline> > spline_buffer_;
 
 private:
   ros::Subscriber sub_task_space_goal_;
 
-  void updateRobotState(RobotState& robot);
-  bool sampleTaskSpline(const double& t, Eigen::Vector2d& w_d, Eigen::Vector2d& dw_d);
-  void constructSpline(const Eigen::Vector2d& w_start, const double t_start, const Eigen::Vector2d& w_end, const double t_end);
-  void constructSpline(const Eigen::Vector2d& w_start, const double t_start, const Eigen::Vector2d& w_end);
   Eigen::Vector4d getOptimizedNullSpaceCommand(const Eigen::Vector2d& dx, const double& sample_time);
+  Eigen::Vector4d getGradientJLA(const Robot& robot);
+  Eigen::Vector4d computeLinkObstacleGradient(const Robot& robot, const int link,
+     const am_ssv_dist::LSS_object* lss, const am_ssv_dist::PSS_object* pss);
+  Eigen::Vector4d computeLinkPairGradient(const Robot& robot,
+                                          const int link_p0, const am_ssv_dist::LSS_object* lss0,
+                                          const int link_p1, const am_ssv_dist::LSS_object* lss1);
+  Eigen::Vector4d getGradientCA(const Robot& robot, const std::array<am_ssv_dist::LSS_object, 4>& link_ssv);
+  Eigen::Vector4d getGradientSCA(const Robot& robot, const std::array<am_ssv_dist::LSS_object, 4>& link_ssv);
+  Eigen::Vector4d getGradientOfCost(const Robot& robot);
 
-  std::vector<urdf::JointConstSharedPtr> joint_urdfs_;
-  std::vector<double> link_length_;
-  
   Eigen::Matrix2d K_e_;
-  double k_p_{200.0};
-  double k_d_{80.0};
-  double dw_max_{0.2};
-  double alpha_{20.0};
   
-  RobotState robot_;
+  Robot robot_;
+  
+  Spline spline_;
   
   Eigen::Vector4d u_;
   
   ros::Time last_update_time_;
 
   void goalCB(const std_msgs::Float64MultiArrayConstPtr& msg);
+  
+  std::vector<double> hard_limits_min_;
+  std::vector<double> hard_limits_max_;
+  std::vector<double> soft_limits_min_;
+  std::vector<double> soft_limits_max_;
+  
+  // parameter for preceding horizon
+  int num_opt_iter_{20};
+  int t_horizon_{5};
+  double k_q_{100};
+  double k_dq_{10};
+  double k_du_{0.1};
+  double alpha_opt_{0.8};
+  
+  // parameter for local optimization
+  double d_sca_{0.2};
+  double m_sca_{50.0};
+  double d_obs_{0.2};
+  double m_obs_{50.0};
+  double k_jla_{2.0};
+  
+  // obstacle parameter
+  double x1_{1.0},y1_{0.6},radius1_{0.1};
+  double x2_{2.0},y2_{0.6},radius2_{0.1};
 }; // class
 
 } // namespace
