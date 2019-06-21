@@ -10,6 +10,8 @@ find_package(catkin REQUIRED COMPONENTS
   controller_manager
 )
 
+find_package(Eigen3 REQUIRED)
+
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES planar_bot_hw
@@ -24,6 +26,7 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIR}
 )
 
 add_executable(${PROJECT_NAME}_node src/planar_bot_hw_node.cpp src/planar_bot_hw.cpp)

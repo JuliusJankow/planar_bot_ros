@@ -1,0 +1,18 @@
+<launch>
+
+  <!-- Load the URDF into the ROS Parameter Server -->
+  <param name="robot_description"
+    command="$(find xacro)/xacro --inorder '$(find planar_bot_description)/urdf/planar_bot_2dof.xacro'" />
+  
+  <node name="planar_bot_hw" pkg="planar_bot_hw" type="planar_bot_hw_node" ns="planar_bot" output="screen"/>
+  
+  <include file="$(find planar_bot_control)/launch/planar_bot_control.launch">
+    <arg name="controller" value="" />
+  </include>
+  
+  <node type="rviz" name="rviz" pkg="rviz" output="screen"/>
+  
+  <node pkg="planar_bot_description" name="sphere_plotter" type="plot_rviz_spheres.py" output="screen" args="pik_controller"/>
+  
+</launch>
+   

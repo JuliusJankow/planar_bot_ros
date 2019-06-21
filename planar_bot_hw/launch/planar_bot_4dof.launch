@@ -2,7 +2,7 @@
 
   <!-- Load the URDF into the ROS Parameter Server -->
   <param name="robot_description"
-    command="$(find xacro)/xacro --inorder '$(find planar_bot_description)/urdf/planar_bot.xacro'" />
+    command="$(find xacro)/xacro --inorder '$(find planar_bot_description)/urdf/planar_bot_4dof.xacro'" />
   
   <node name="planar_bot_hw" pkg="planar_bot_hw" type="planar_bot_hw_node" ns="planar_bot" output="screen"/>
   

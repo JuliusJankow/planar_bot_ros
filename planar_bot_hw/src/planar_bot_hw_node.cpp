@@ -1,5 +1,6 @@
 #include <ros/ros.h>
 #include <controller_manager/controller_manager.h>
+#include <vector>
 
 #include "planar_bot_hw.h"
 
@@ -9,7 +10,15 @@ int main(int argc, char **argv) {
   ros::AsyncSpinner spinner(4); // Use 4 threads
   spinner.start();
   
-  planar_bot_hw::PlanarBotHW robot;
+  std::vector<double> q_init(2);
+  q_init[0] = 2.0;
+  q_init[1] = 1.5;
+  /*q_init[0] = 1.7;
+  q_init[1] = -0.5;
+  q_init[2] = -0.5;
+  q_init[3] = 0.3;*/
+  
+  planar_bot_hw::PlanarBotHW robot(q_init);
   controller_manager::ControllerManager cm(&robot);
   
   double t0 = ros::Time::now().toSec();
