@@ -1,14 +1,14 @@
-### Planar Bot ROS
+# Planar Bot ROS
 
 ## A ros project for testing planning and control approaches with minimalistic kinematics and a planar workspace
 
-# Software Dependencies
+### Software Dependencies
 - ros
 - ros_control
 - rviz
 - gazebo_ros (only neccessary if you want to test torque interface controller)
 
-# Packages
+### Packages
 - planar_bot_description: contains urdf files and a simple launch file for visualizing a urdf
 - planar_bot_hw: "Hardware" class, that maps controller command to joint state
   in order to link position interface controller to joint_state_controller
