@@ -31,5 +31,13 @@
       It expects an EffortJointInterface type of hardware interface.
     </description>
   </class>
+  
+  <class name="planar_bot_control/SimpleController" type="planar_bot_control::SimpleController"
+         base_class_type="controller_interface::ControllerBase">
+    <description>
+      The RRT controller moves the robot to a task space goal while moving in null space along the negative gradient of a cost function.
+      It expects an EffortJointInterface type of hardware interface.
+    </description>
+  </class>
 
 </library>

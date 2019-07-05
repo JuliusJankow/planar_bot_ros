@@ -13,8 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Eigen3 REQUIRED)
 
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES planar_bot_hw
+  INCLUDE_DIRS include
+  LIBRARIES planar_bot
 #  CATKIN_DEPENDS roscpp
 #  DEPENDS system_lib
 )
@@ -35,3 +35,9 @@ add_executable(${PROJECT_NAME}_node src/planar_bot_hw_node.cpp src/planar_bot_hw
 target_link_libraries(${PROJECT_NAME}_node
   ${catkin_LIBRARIES}
 )
+
+add_library(planar_bot
+  src/planar_bot.cpp
+)
+
+target_link_libraries(planar_bot ${catkin_LIBRARIES})

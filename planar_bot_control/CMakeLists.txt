@@ -39,6 +39,7 @@ add_library(${PROJECT_NAME}
   src/asc_controller.cpp
   src/predictive_ik_controller.cpp
   src/reactive_task_tracking_controller.cpp src/rtt_subtask_calculations.cpp
+  src/trajectory_controller.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})

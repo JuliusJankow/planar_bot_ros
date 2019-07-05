@@ -28,30 +28,4 @@ private:
   double dummy_{0.0};
 }; // class
 
-// TODO: Make a custom interface containing x and J
-class Robot
-{
-public:
-  Robot(const std::vector<double>& link_length) : link_length_(link_length) {
-    num_dof_ = link_length.size();
-    for(int i=0; i<num_dof_+1; i++) {
-      x.emplace_back(Eigen::Vector2d::Zero());
-      J.emplace_back(Eigen::Matrix<double,2,4>::Zero());
-    }
-  }
-  ~Robot(){}
-  
-  void computeForwardKinematics();
-  static void computeMoorePenrosePinv(const Eigen::Matrix<double,2,4>& mat, Eigen::Matrix<double,4,2>& mat_inv);
-
-  Eigen::Vector4d q;
-  std::vector<Eigen::Vector2d> x;
-  std::vector<Eigen::Matrix<double,2,4> > J;
-
-private:
-  int num_dof_;
-  std::vector<double> link_length_;
-
-}; // class
-
 } // namespace
