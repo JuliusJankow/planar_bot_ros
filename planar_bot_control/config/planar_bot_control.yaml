@@ -4,6 +4,15 @@ planar_bot:
     type: joint_state_controller/JointStateController
     publish_rate: 30
 
+  # Trajectory show Controller
+  traj_controller:
+    type: "planar_bot_control/SimpleController"
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+
   # RMRC Controller
   rmrc_controller:
     type: "planar_bot_control/RMRCController"

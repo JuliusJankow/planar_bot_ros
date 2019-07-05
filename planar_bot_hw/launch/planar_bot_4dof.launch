@@ -7,7 +7,7 @@
   <node name="planar_bot_hw" pkg="planar_bot_hw" type="planar_bot_hw_node" ns="planar_bot" output="screen"/>
   
   <include file="$(find planar_bot_control)/launch/planar_bot_control.launch">
-    <arg name="controller" value="pik_controller" />
+    <arg name="controller" value="traj_controller" />
   </include>
   
   <node type="rviz" name="rviz" pkg="rviz" output="screen"/>

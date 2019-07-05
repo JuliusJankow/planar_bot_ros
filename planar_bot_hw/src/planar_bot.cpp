@@ -12,7 +12,10 @@ void Robot::computeFK(const Eigen::Vector4d& q_tmp,
                       std::array< Eigen::Matrix<double,2,4>, 5 >& J_tmp) 
 {
 // efficient forward kinematics calculation for planar bot
-  std::array<double,num_dof_> lc,ls;
+  x_tmp[0] = Eigen::Vector2d::Zero();
+  J_tmp[0] = Eigen::Matrix<double,2,4>::Zero();
+
+  std::vector<double> lc(num_dof_),ls(num_dof_);
   for(int i=0; i<num_dof_; i++) {
     double link_angle = 0.0;
     for(int j=0; j<=i; j++) {
@@ -20,6 +23,9 @@ void Robot::computeFK(const Eigen::Vector4d& q_tmp,
     }
     lc[i] = link_length_[i] * std::cos(link_angle);
     ls[i] = link_length_[i] * std::sin(link_angle);
+    
+    x_tmp[i+1] = Eigen::Vector2d::Zero();
+    J_tmp[i+1] = Eigen::Matrix<double,2,4>::Zero();
   }
   
   for(int frame=1; frame<=num_dof_; frame++) { // calculate position and jacobian at [frame]

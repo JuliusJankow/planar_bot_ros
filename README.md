@@ -14,3 +14,4 @@
   in order to link position interface controller to joint_state_controller
 - planar_bot_gazebo: contains launch files to start the gazebo backend with a ros interface
 - planar_bot_control: custom controllers that implement several inverse kinematic resolution approaches on position and torque level
+- planar_bot_planning: contains a pipeline for computing a trajectory by using PRM, Shortcutting, Elastic Band Smoothing and Time-optimtal Path Parametrization
