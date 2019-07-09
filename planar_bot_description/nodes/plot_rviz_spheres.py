@@ -7,7 +7,7 @@ from visualization_msgs.msg import Marker
 from geometry_msgs.msg import Point
 
 class SpherePlotter:
-  def __init__(self, controller_name):
+  def __init__(self, topic_name):
     self.active = False
     self.goal = []
     
@@ -25,8 +25,8 @@ class SpherePlotter:
     self.marker.points[0].z = 0.0
     self.marker.points[1].z = 0.0
     
-    goal_topic = '/planar_bot/' + controller_name + '/goal'
-    self.subscriber = rospy.Subscriber(goal_topic, Float64MultiArray, self.callback)
+    #goal_topic = '/planar_bot/' + controller_name + '/goal'
+    self.subscriber = rospy.Subscriber(topic_name, Float64MultiArray, self.callback)
     self.publisher = rospy.Publisher('visualization_marker', Marker, queue_size=10)
     
   def callback(self, goal_msg):
@@ -91,7 +91,7 @@ class SpherePlotter:
     self.publisher.publish(self.marker)
     
     if self.active == True:
-      self.prepareMarker(marker_id=3, radius=0.1, x=self.goal[0], y=self.goal[1], color='green')
+      self.prepareSphere(marker_id=3, radius=0.1, x=self.goal[0], y=self.goal[1], color='green')
       # Publish the Marker
       self.publisher.publish(self.marker)
 
@@ -100,11 +100,11 @@ if __name__=="__main__":
     args = ''
     for i in range(len(sys.argv)):
       args = args + sys.argv[i] + ' '
-    print("Usage: plot_rviz_spheres.py <controller_name> ; Received: " + args)
+    print("Usage: plot_rviz_spheres.py <Goal topic name> ; Received: " + args)
   else:
     rospy.init_node('register', anonymous=True)
 
-    sphere_plotter = SpherePlotter(controller_name=sys.argv[1])
+    sphere_plotter = SpherePlotter(topic_name=sys.argv[1])
 
     while not rospy.is_shutdown():
       sphere_plotter.push()

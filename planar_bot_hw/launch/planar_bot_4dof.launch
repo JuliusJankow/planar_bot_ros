@@ -12,7 +12,7 @@
   
   <node type="rviz" name="rviz" pkg="rviz" output="screen"/>
   
-  <node pkg="planar_bot_description" name="sphere_plotter" type="plot_rviz_spheres.py" output="screen" args="pik_controller"/>
+  <node pkg="planar_bot_description" name="sphere_plotter" type="plot_rviz_spheres.py" output="screen" args="/x"/>
   
 </launch>
    
