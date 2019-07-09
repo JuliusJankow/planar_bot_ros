@@ -98,6 +98,8 @@ void goalCB(const std_msgs::Float64MultiArrayConstPtr& msg) {
   ROS_INFO("Smoothing done.");
   ROS_INFO("Start time parametrization ...");
   
+  //param_eb.stride = 0.05;
+  //eb.preparePath(path_smooth, param_eb);
   planar_bot_planning::TOPP topp(&robot);
   planar_bot_planning::Trajectory trajectory_tmp;
   trajectory_tmp.sample_time = 0.02;
@@ -151,7 +153,8 @@ int main(int argc, char **argv) {
   std::array<double,4> q_min   = {-0.15, -2.8, -2.8, -2.8};
   std::array<double,4> q_max   = {  3.3,  2.8,  2.8,  2.8};
   std::array<double,4> dq_max  = {0.5, 0.5, 0.5, 0.5};
-  std::array<double,4> ddq_max = {0.1, 0.1, 0.1, 0.1};
+  //std::array<double,4> ddq_max = {0.1, 0.1, 0.1, 0.1};
+  std::array<double,4> ddq_max = {20.0, 40.0, 80.0, 100.0};
   robot.setJointLimits(q_min, q_max, dq_max, ddq_max);
   
   planner = new planar_bot_planning::PRM(&robot, nodes, edges);

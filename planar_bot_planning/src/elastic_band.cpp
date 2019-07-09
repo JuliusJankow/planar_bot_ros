@@ -39,16 +39,19 @@ void ElasticBand::preparePath(Path& path, const Param& param)
 {
   Path result;
   
+  double factor = 0.0;
   // compute path with correct stride
   for(size_t n=0; n<path.size()-1; n++) {
     double step = param.stride / (path[n+1] - path[n]).norm();
     
-    double factor = 0.0;
     while(factor < 1.0) {
       result.emplace_back(path[n] + factor * (path[n+1] - path[n]));
       factor += step;
     }
+    
+    factor -= 1.0;
   }
+  result.emplace_back(path[path.size()-1]);
   
   path.swap(result);
 }
@@ -69,7 +72,7 @@ bool ElasticBand::smooth(Path& result, const Path& initial_path, const Param& pa
       //std::cerr << "Elastic Band diverged after " << iter+2 << " iteraions." << std::endl;
       return false;
     }
-    if(std::abs(new_cost - cost) * 100000.0 < 0.001) {
+    if(std::abs(new_cost - cost) * 100000.0 < 0.0001) {
       //std::cout << "Elastic Band converged after " << iter+2 << " iteraions." << std::endl;
       return true;
     }
