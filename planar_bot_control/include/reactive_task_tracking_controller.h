@@ -6,6 +6,7 @@
 #include <controller_interface/controller.h>
 #include <std_msgs/Float64MultiArray.h>
 #include <control_msgs/JointControllerState.h>
+#include <realtime_tools/realtime_publisher.h>
 #include <array>
 #include <kinematics/kinematics.h>
 #include <planning/spline.h>
@@ -29,10 +30,10 @@ public:
 private:
   ros::Subscriber sub_task_space_goal_;
   
-  Eigen::Vector4d getTauFromSubtasks();
+  Eigen::Vector4d getTauFromSubtasks(std::vector<double>& da);
   Eigen::Vector4d getSubtaskTorqueJLA();
   Eigen::Vector4d getSubtaskTorqueCA(const int link_idx, 
-                                     const am_ssv_dist::LSS_object* lss, const am_ssv_dist::PSS_object* pss);
+                                     const am_ssv_dist::LSS_object* lss, const am_ssv_dist::PSS_object* pss, double& da);
   Eigen::Vector4d getSubtaskTorqueSCA(const int link_idx_0, const int link_idx_1,
                                       const am_ssv_dist::LSS_object* lss_0, const am_ssv_dist::LSS_object* lss_1);
 
@@ -67,11 +68,14 @@ private:
   
   Eigen::Vector2d x_des, dx_des;
   
-  double time_scaling_lower_thresh_{0.0};
+  double time_scaling_lower_thresh_{0.2};
   double time_scaling_upper_thresh_{0.5};
   double trajectory_time_;
   
   void goalCB(const std_msgs::Float64MultiArrayConstPtr& msg);
+  
+  realtime_tools::RealtimePublisher<std_msgs::Float64MultiArray>* x_des_pub;
+  realtime_tools::RealtimePublisher<std_msgs::Float64MultiArray>* d_active_pub;
 }; // class
 
 } // namespace

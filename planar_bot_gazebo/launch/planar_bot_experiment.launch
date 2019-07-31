@@ -8,6 +8,7 @@
   
   <node type="rviz" name="rviz" pkg="rviz" output="screen"/>
   
-  <node pkg="planar_bot_description" name="sphere_plotter" type="plot_rviz_spheres.py" output="screen" args="/planar_bot/rtt_controller/goal"/>
+  <node pkg="planar_bot_description" name="sphere_plotter" type="plot_rviz_spheres.py" output="screen" 
+        args="/planar_bot/rtt_controller/goal /planar_bot/rtt_controller/x_des /planar_bot/rtt_controller/d_active"/>
   
 </launch>

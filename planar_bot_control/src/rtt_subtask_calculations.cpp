@@ -36,7 +36,7 @@ void computePointJacobian(const Robot& robot, const Eigen::Vector2d& point, cons
 }
 
 Eigen::Vector4d RTTController::getSubtaskTorqueCA(const int link_idx,
-    const am_ssv_dist::LSS_object* lss, const am_ssv_dist::PSS_object* pss)
+    const am_ssv_dist::LSS_object* lss, const am_ssv_dist::PSS_object* pss, double& d_active)
 {
   Eigen::Vector4d tau_ca = Eigen::Vector4d::Zero();
 
@@ -62,9 +62,10 @@ Eigen::Vector4d RTTController::getSubtaskTorqueCA(const int link_idx,
   
   double dd = J_pq.transpose() * robot_.dq;
   
-  double d_active = std::max(- inflation_factor_ * dd, minimum_active_distance_);
+  d_active = std::max(- inflation_factor_ * dd, minimum_active_distance_);
   
   if(d_rad >= d_active) {
+    d_active = 0.0;
     return tau_ca;
   }
   if(d_rad < 0.0) { d_rad = 0.0; }

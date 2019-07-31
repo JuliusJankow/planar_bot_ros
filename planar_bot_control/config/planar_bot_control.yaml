@@ -75,7 +75,7 @@ planar_bot:
       - joint2
       - joint3
       - joint4
-    task_space_p_gain: 100.0
+    task_space_p_gain: 50.0 #100.0
     hard_limits_min: [-0.3, -3.0, -3.0, -3.0]
     hard_limits_max: [3.45, 3.0, 3.0, 3.0]
     soft_limits_min: [-0.15, -2.8, -2.8, -2.8]
@@ -85,10 +85,10 @@ planar_bot:
     d_sca: 0.1
     m_sca: 80.0
     damping_sca: 5.0
-    d_obs: 20.0
-    m_obs: 1200.0
+    d_obs: 2.0 # 20
+    m_obs: 600.0 # 1200
     inflation: 0.8
-    time_scaling_lower_thresh: 0.05
-    time_scaling_upper_thresh: 0.25
+    time_scaling_lower_thresh: 0.1
+    time_scaling_upper_thresh: 0.4
     joint_damping: 5.0
     minimum_active_distance: 0.05

@@ -112,6 +112,15 @@ bool RTTController::init(hardware_interface::EffortJointInterface* hw, ros::Node
   robot_.setLinkLengths(0.9,0.9,0.9,0.95);
 
   sub_task_space_goal_ = n.subscribe<std_msgs::Float64MultiArray>("goal", 4, &RTTController::goalCB, this);
+  
+  x_des_pub = new realtime_tools::RealtimePublisher<std_msgs::Float64MultiArray>(n, "x_des", 4);
+  x_des_pub->msg_.data.push_back(0);
+  x_des_pub->msg_.data.push_back(0);
+  
+  d_active_pub = new realtime_tools::RealtimePublisher<std_msgs::Float64MultiArray>(n, "d_active", 4);
+  d_active_pub->msg_.data.push_back(0);
+  d_active_pub->msg_.data.push_back(0);
+  
   return true;
 }
 
@@ -127,7 +136,7 @@ void RTTController::starting(const ros::Time& time) {
   dx_des << 0.0, 0.0;
 }
 
-Eigen::Vector4d RTTController::getTauFromSubtasks()
+Eigen::Vector4d RTTController::getTauFromSubtasks(std::vector<double>& da)
 {
   std::array<am_ssv_dist::LSS_object, 4> link_ssv;
   
@@ -151,9 +160,14 @@ Eigen::Vector4d RTTController::getTauFromSubtasks()
   tau_sub += getSubtaskTorqueJLA();
   
   // compute collision avoidance (CA) torques
+  da[0] = 0;
+  da[1] = 0;
   for(int link=0; link<4; link++) {
-    tau_sub += getSubtaskTorqueCA(link, &(link_ssv[link]), &p1);
-    tau_sub += getSubtaskTorqueCA(link, &(link_ssv[link]), &p2);
+    double d_active;
+    tau_sub += getSubtaskTorqueCA(link, &(link_ssv[link]), &p1, d_active);
+    da[0] = d_active; //std::max(da[0], d_active);
+    tau_sub += getSubtaskTorqueCA(link, &(link_ssv[link]), &p2, d_active);
+    da[1] = d_active; //std::max(da[1], d_active);
   }
   
   // compute self collision avoidance (SCA) torques
@@ -165,6 +179,8 @@ Eigen::Vector4d RTTController::getTauFromSubtasks()
 }
 
 void RTTController::update(const ros::Time& t, const ros::Duration& period) {
+  static int counter = 0;
+  
   for(unsigned int i=0; i<joints_.size(); i++) {
     robot_.q[i]  = joints_[i].getPosition();
     robot_.dq[i] = joints_[i].getVelocity();
@@ -195,7 +211,8 @@ void RTTController::update(const ros::Time& t, const ros::Duration& period) {
   Eigen::Vector2d F_task = - K_p_ * (x - x_des) - K_d_ * (dx - dx_des);
 
   // compute torque to locally optimize subtasks
-  Eigen::Vector4d tau_pot = getTauFromSubtasks();
+  std::vector<double> d_active(2);
+  Eigen::Vector4d tau_pot = getTauFromSubtasks(d_active);
 
   Eigen::Vector4d tau_c = J_EE.transpose() * F_task + tau_pot - joint_damping_ * robot_.dq;
 
@@ -208,6 +225,21 @@ void RTTController::update(const ros::Time& t, const ros::Duration& period) {
   for(unsigned int i=0; i<joints_.size(); i++) {
     joints_[i].setCommand(tau_c[i]*multiplicator);
   }
+  
+  if(counter >= 20) {
+    if(d_active_pub->trylock()) {
+      counter = 0;
+      d_active_pub->msg_.data[0] = d_active[0];
+      d_active_pub->msg_.data[1] = d_active[1];
+      d_active_pub->unlockAndPublish();
+    }
+    if(x_des_pub->trylock()) {
+      counter = 0;
+      x_des_pub->msg_.data[0] = x_des[0];
+      x_des_pub->msg_.data[1] = x_des[1];
+      x_des_pub->unlockAndPublish();
+    }
+  } else { counter++; }
 }
 
 void RTTController::goalCB(const std_msgs::Float64MultiArrayConstPtr& msg) {
