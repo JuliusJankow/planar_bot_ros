@@ -52,7 +52,7 @@ bool Spline::sample(const double& t, Eigen::Vector2d& w_d, Eigen::Vector2d& dw_d
 {
   std::vector<Quintic>* splines = rt_coefficient_buffer_.readFromNonRT();
 
-  if(start_time > t || t > end_time) {
+  if(start_time > t || t >= end_time) {
     return false;
   }
 
